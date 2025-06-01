@@ -4,13 +4,14 @@ import net.bramp.ffmpeg.FFmpeg;
 import net.bramp.ffmpeg.FFmpegExecutor;
 import net.bramp.ffmpeg.builder.*;
 import shared.Constants;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.logging.Logger;
 
 public class VideoGenerator {
+    private static final Logger logger = Logger.getLogger(VideoGenerator.class.getName());
     private static final List<String> SUPPORTED_FORMATS = Arrays.asList("mp4", "mkv", "avi");
     private static final List<String> SUPPORTED_RESOLUTIONS = Arrays.asList("240p", "360p", "480p", "720p", "1080p");
 
@@ -18,6 +19,7 @@ public class VideoGenerator {
         File videosDir = new File(Constants.VIDEO_DIR);
         if (!videosDir.exists()) {
             videosDir.mkdirs();
+            logger.info("Created videos directory");
             return;
         }
 
@@ -25,12 +27,14 @@ public class VideoGenerator {
         FFmpegExecutor executor = new FFmpegExecutor(ffmpeg);
 
         for (File file : videosDir.listFiles()) {
-            if (file.isFile()) {
+            if (file.isFile() && file.getName().contains("-")) {
                 String fileName = file.getName();
-                if (fileName.contains("-")) {
-                    String baseName = fileName.substring(0, fileName.lastIndexOf('-'));
-                    String resolution = fileName.substring(fileName.lastIndexOf('-') + 1, fileName.lastIndexOf('.'));
-                    String format = fileName.substring(fileName.lastIndexOf('.') + 1);
+                String baseName = fileName.substring(0, fileName.lastIndexOf('-'));
+                String resolutionAndFormat = fileName.substring(fileName.lastIndexOf('-') + 1);
+
+                if (resolutionAndFormat.contains(".")) {
+                    String resolution = resolutionAndFormat.substring(0, resolutionAndFormat.lastIndexOf('.'));
+                    String format = resolutionAndFormat.substring(resolutionAndFormat.lastIndexOf('.') + 1);
 
                     if (SUPPORTED_RESOLUTIONS.contains(resolution) && SUPPORTED_FORMATS.contains(format)) {
                         generateMissingVersions(executor, baseName, resolution, format);
@@ -46,23 +50,20 @@ public class VideoGenerator {
 
         for (String targetFormat : SUPPORTED_FORMATS) {
             for (String targetResolution : SUPPORTED_RESOLUTIONS) {
-                // Skip if resolution is higher than source
                 if (getResolutionValue(targetResolution) > getResolutionValue(sourceResolution)) continue;
-
-                // Skip if source format and resolution match target
                 if (targetFormat.equals(sourceFormat) && targetResolution.equals(sourceResolution)) continue;
 
                 String outputPath = Constants.VIDEO_DIR + baseName + "-" + targetResolution + "." + targetFormat;
                 File outputFile = new File(outputPath);
 
                 if (!outputFile.exists()) {
-                    System.out.println("Generating: " + outputPath);
+                    logger.info("Generating: " + outputPath);
                     try {
                         FFmpegBuilder builder = createConversionBuilder(sourceFile, outputPath, targetFormat, targetResolution);
                         executor.createJob(builder).run();
+                        logger.info("Successfully generated: " + outputPath);
                     } catch (Exception e) {
-                        System.err.println("Failed to generate " + outputPath + ": " + e.getMessage());
-                        e.printStackTrace();
+                        logger.severe("Failed to generate " + outputPath + ": " + e.getMessage());
                     }
                 }
             }
@@ -75,27 +76,19 @@ public class VideoGenerator {
                 .setInput(input.getAbsolutePath())
                 .overrideOutputFiles(true)
                 .addOutput(outputPath)
-                .setVideoFilter("scale=" + getResolutionWidth(resolution) + ":" + getResolutionHeight(resolution));
+                .setVideoFilter("scale=" + getResolutionWidth(resolution) + ":" + getResolutionHeight(resolution))
+                .addExtraArgs("-c:v", "libx264")
+                .addExtraArgs("-preset", "fast")
+                .addExtraArgs("-crf", "23")
+                .addExtraArgs("-c:a", "aac")
+                .addExtraArgs("-b:a", "128k");
 
-        // Universal settings that work with most FFmpeg builds
-        builder.addExtraArgs("-c:v", "libx264")  // standard H.264 encoder
-                .addExtraArgs("-preset", "fast")  // Faster encoding
-                .addExtraArgs("-crf", "23")       // Quality factor
-                .addExtraArgs("-c:a", "aac")      // Audio codec
-                .addExtraArgs("-b:a", "128k");    // Audio bitrate
-
-        // Format-specific settings
         switch (format) {
-            case "mp4":
-                builder.addExtraArgs("-movflags", "+faststart");
-                break;
-            case "mkv":
-                // No additional flags needed for MKV
-                break;
-            case "avi":
-                builder.addExtraArgs("-c:v", "mpeg4")  // More compatible with AVI
-                        .addExtraArgs("-c:a", "mp3");   // Better for AVI
-                break;
+            case "mp4" -> builder.addExtraArgs("-movflags", "+faststart");
+            case "avi" -> {
+                builder.addExtraArgs("-c:v", "mpeg4");
+                builder.addExtraArgs("-c:a", "mp3");
+            }
         }
 
         return builder.done();

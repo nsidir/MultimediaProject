@@ -1,7 +1,6 @@
 package server;
 
 import shared.*;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,13 +13,13 @@ public class FFmpegProcessor {
         File directory = new File(Constants.VIDEO_DIR);
 
         if (directory.exists() && directory.isDirectory()) {
-            File[] files = directory.listFiles((dir, name) -> name.toLowerCase().endsWith(".mp4"));
+            File[] files = directory.listFiles();
             if (files != null) {
-                Pattern pattern = Pattern.compile("(.+)-(\\d+p)\\.mp4");
+                Pattern pattern = Pattern.compile("(.+)-(\\d+p)\\.(mp4|mkv|avi)");
                 for (File file : files) {
                     Matcher matcher = pattern.matcher(file.getName());
                     if (matcher.matches()) {
-                        videos.add(new VideoInfo(matcher.group(1), matcher.group(2)));
+                        videos.add(new VideoInfo(matcher.group(1), matcher.group(2), matcher.group(3)));
                     }
                 }
             }
