@@ -18,30 +18,27 @@ public class NetworkSpeedTest {
         speedTestSocket.addSpeedTestListener(new ISpeedTestListener() {
             @Override
             public void onCompletion(SpeedTestReport report) {
-                speedResult[0] = report.getTransferRateBit().doubleValue() / 1000000; // Convert to Mbps
+                speedResult[0] = report.getTransferRateBit().doubleValue() / 1000000; // Mbps
                 latch.countDown();
             }
 
             @Override
             public void onError(SpeedTestError speedTestError, String errorMessage) {
-                speedResult[0] = 2.0; // Default fallback speed
+                speedResult[0] = 2.0; // Default
                 latch.countDown();
             }
 
             @Override
-            public void onProgress(float percent, SpeedTestReport report) {
-                // Progress updates can be handled here if needed
-            }
+            public void onProgress(float percent, SpeedTestReport report) {}
         });
 
         try {
             speedTestSocket.startFixedDownload(Constants.SPEED_TEST_SERVER, TEST_DURATION_MS);
-            latch.await(TEST_DURATION_MS + 2000, TimeUnit.MILLISECONDS); // Wait with timeout
+            latch.await(TEST_DURATION_MS + 2000, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return 2.0; // Default fallback speed
+            return 2.0;
         }
-
-        return Math.round(speedResult[0] * 100.0) / 100.0; // Round to 2 decimal places
+        return Math.round(speedResult[0] * 100.0) / 100.0;
     }
 }

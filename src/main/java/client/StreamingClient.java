@@ -20,24 +20,18 @@ public class StreamingClient {
             logger.info("Connection speed: " + connectionSpeed + " Mbps");
 
             // Get format preference from user
-            String[] formats = {"mp4", "mkv", "avi"};
+            String[] formats = Constants.FORMATS;
             String selectedFormat = (String) JOptionPane.showInputDialog(
                     null, "Select video format:", "Format Selection",
                     JOptionPane.QUESTION_MESSAGE, null, formats, formats[0]);
-
-            if (selectedFormat == null) {
-                System.exit(0);
-            }
+            if (selectedFormat == null) System.exit(0);
 
             // Get available videos
             Map<String, List<String>> availableVideos = getAvailableVideos(connectionSpeed, selectedFormat);
 
             if (!availableVideos.isEmpty()) {
-                VideoPlayerPanel videoPlayerPanel = new VideoPlayerPanel();
-                ClientHandler.setVideoPlayerPanel(videoPlayerPanel);
-
                 SwingUtilities.invokeLater(() ->
-                        new VideoClientUI(availableVideos, videoPlayerPanel, connectionSpeed, selectedFormat));
+                        new VideoClientUI(availableVideos, connectionSpeed, selectedFormat));
             } else {
                 JOptionPane.showMessageDialog(null, "No videos available from server.",
                         "No Videos", JOptionPane.INFORMATION_MESSAGE);
@@ -54,7 +48,6 @@ public class StreamingClient {
              BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
 
-            // Request video list
             out.println(Protocol.LIST);
             out.println(speed);
             out.println(format);
@@ -62,7 +55,6 @@ public class StreamingClient {
 
             int videoCount = Integer.parseInt(in.readLine());
             Map<String, List<String>> availableVideos = new HashMap<>();
-
             for (int i = 0; i < videoCount; i++) {
                 String[] parts = in.readLine().split(",");
                 if (parts.length == 2) {

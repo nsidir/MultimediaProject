@@ -1,7 +1,10 @@
 package client;
 
+import shared.*;
 import javax.swing.*;
 import java.awt.*;
+import java.io.*;
+import java.net.*;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -11,74 +14,56 @@ public class VideoClientUI {
     private JComboBox<String> resolutionCombo;
     private JComboBox<String> protocolCombo;
     private JList<String> movieList;
-    private JButton playButton; // Made a field to access it easily
-    private JButton stopButton; // Made a field
+    private JButton playButton;
+    private JButton stopButton;
     private final Map<String, List<String>> availableVideos;
-    private final VideoPlayerPanel videoPlayerPanel;
-    private final double connectionSpeed;
-    private final String selectedFormat;
+    private Process ffplayProcess;
     private static final Logger logger = Logger.getLogger(VideoClientUI.class.getName());
+    private double connectionSpeed;
+    private String selectedFormat;
 
-    public VideoClientUI(Map<String, List<String>> availableVideos,
-                         VideoPlayerPanel videoPlayerPanel,
-                         double connectionSpeed, String selectedFormat) {
+    public VideoClientUI(Map<String, List<String>> availableVideos, double connectionSpeed, String selectedFormat) {
         this.availableVideos = availableVideos;
-        this.videoPlayerPanel = videoPlayerPanel;
         this.connectionSpeed = connectionSpeed;
         this.selectedFormat = selectedFormat;
         initializeUI();
     }
 
     private void initializeUI() {
-        frame = new JFrame("Movie Streamer - Connected at " + connectionSpeed + " Mbps (Format: " + selectedFormat.toUpperCase() + ")");
-        frame.setSize(1200, 800);
+        frame = new JFrame("Movie Streamer");
+        frame.setSize(900, 700);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout());
 
-        // Add the video player panel
-        frame.add(videoPlayerPanel, BorderLayout.CENTER);
-
-        // Create sidebar for video selection
         JPanel controlPanel = new JPanel(new BorderLayout());
-        controlPanel.setPreferredSize(new Dimension(350, 0)); // Adjusted width
+        controlPanel.setPreferredSize(new Dimension(350, 0));
         controlPanel.setBorder(BorderFactory.createTitledBorder("Video Selection & Controls"));
 
         DefaultListModel<String> listModel = new DefaultListModel<>();
-        if (availableVideos != null) {
-            availableVideos.keySet().stream().sorted().forEach(listModel::addElement);
-        } else {
-            logger.warning("Available videos map is null during UI initialization.");
-        }
-
+        availableVideos.keySet().stream().sorted().forEach(listModel::addElement);
 
         movieList = new JList<>(listModel);
         movieList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         JScrollPane scrollPane = new JScrollPane(movieList);
 
         resolutionCombo = new JComboBox<>();
-        protocolCombo = new JComboBox<>(new String[]{"Auto", "TCP", "UDP", "RTP"}); // UDP and RTP are placeholders for now
+        protocolCombo = new JComboBox<>(new String[]{"Auto", "TCP", "UDP", "RTP"});
 
-        JPanel topSelectionPanel = new JPanel(new BorderLayout(5,5)); // Added some gap
+        JPanel topSelectionPanel = new JPanel(new BorderLayout(5,5));
         topSelectionPanel.add(new JLabel(" Select a movie:"), BorderLayout.NORTH);
         topSelectionPanel.add(scrollPane, BorderLayout.CENTER);
 
-        JPanel settingsPanel = new JPanel(new GridLayout(0, 2, 5, 5)); // 0 rows means flexible
+        JPanel settingsPanel = new JPanel(new GridLayout(0, 2, 5, 5));
         settingsPanel.setBorder(BorderFactory.createTitledBorder("Stream Settings"));
         settingsPanel.add(new JLabel("Resolution:"));
         settingsPanel.add(resolutionCombo);
         settingsPanel.add(new JLabel("Protocol:"));
         settingsPanel.add(protocolCombo);
-        settingsPanel.add(new JLabel("Selected Format:"));
-        settingsPanel.add(new JLabel(selectedFormat.toUpperCase()));
-        settingsPanel.add(new JLabel("Est. Speed:"));
-        settingsPanel.add(new JLabel(String.format("%.2f Mbps", connectionSpeed)));
 
-
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10)); // Centered with gaps
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
         playButton = new JButton("▶ Play");
         stopButton = new JButton("⏹ Stop");
         JButton exitButton = new JButton("Exit");
-
         Dimension buttonSize = new Dimension(100, 35);
         playButton.setPreferredSize(buttonSize);
         stopButton.setPreferredSize(buttonSize);
@@ -92,28 +77,17 @@ public class VideoClientUI {
         southControlPanel.add(settingsPanel, BorderLayout.NORTH);
         southControlPanel.add(buttonPanel, BorderLayout.CENTER);
 
-
         controlPanel.add(topSelectionPanel, BorderLayout.CENTER);
         controlPanel.add(southControlPanel, BorderLayout.SOUTH);
+        frame.add(controlPanel, BorderLayout.CENTER);
 
-
-        frame.add(controlPanel, BorderLayout.WEST);
-
-        // Listeners
         movieList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 String selectedMovie = movieList.getSelectedValue();
                 resolutionCombo.removeAllItems();
-                if (selectedMovie != null && availableVideos != null && availableVideos.containsKey(selectedMovie)) {
-                    List<String> resolutions = availableVideos.get(selectedMovie);
-                    if (resolutions != null) {
-                        resolutions.stream().sorted().forEach(resolutionCombo::addItem);
-                        if (resolutionCombo.getItemCount() > 0) {
-                            resolutionCombo.setSelectedIndex(0); // Select first available resolution
-                        }
-                    } else {
-                        logger.warning("Resolutions list is null for movie: " + selectedMovie);
-                    }
+                if (selectedMovie != null && availableVideos.containsKey(selectedMovie)) {
+                    availableVideos.get(selectedMovie).stream().sorted().forEach(resolutionCombo::addItem);
+                    if (resolutionCombo.getItemCount() > 0) resolutionCombo.setSelectedIndex(0);
                 }
             }
         });
@@ -123,94 +97,135 @@ public class VideoClientUI {
             String selectedResolution = (String) resolutionCombo.getSelectedItem();
             String selectedProtocolChoice = (String) protocolCombo.getSelectedItem();
 
-            if (selectedMovie == null) {
-                JOptionPane.showMessageDialog(frame, "Please select a movie.",
-                        "Selection Required", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            if (selectedResolution == null) {
-                JOptionPane.showMessageDialog(frame, "Please select a resolution for '" + selectedMovie + "'.",
-                        "Selection Required", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            if (selectedProtocolChoice == null) {
-                JOptionPane.showMessageDialog(frame, "Please select a protocol.",
-                        "Selection Required", JOptionPane.WARNING_MESSAGE);
+            if (selectedMovie == null || selectedResolution == null || selectedProtocolChoice == null) {
+                JOptionPane.showMessageDialog(frame, "Please select movie, resolution, and protocol.");
                 return;
             }
 
-
-            String actualProtocol = selectedProtocolChoice;
-            if ("Auto".equals(selectedProtocolChoice)) {
-                actualProtocol = getAutoProtocol(selectedResolution);
-                logger.info("Auto protocol selected. Determined protocol: " + actualProtocol + " for resolution " + selectedResolution);
-            }
+            String actualProtocol = selectedProtocolChoice.equals("Auto")
+                    ? getAutoProtocol(selectedResolution) : selectedProtocolChoice;
 
             playButton.setEnabled(false);
             playButton.setText("Loading...");
-            stopButton.setEnabled(true); // Enable stop button when loading/playing
+            stopButton.setEnabled(true);
 
-            // Define the callback to re-enable the play button
-            Runnable onStreamCompletion = () -> {
-                SwingUtilities.invokeLater(() -> {
-                    playButton.setEnabled(true);
-                    playButton.setText("▶ Play");
-                    // Keep stop button enabled if needed, or disable if stream truly stopped/failed
-                });
-            };
-
-            logger.info("Initiating stream: Movie=" + selectedMovie + ", Res=" + selectedResolution +
-                    ", Format=" + selectedFormat + ", Protocol=" + actualProtocol);
-
-            // ClientHandler.streamSelectedVideo is already async
-            ClientHandler.streamSelectedVideo(selectedMovie, selectedResolution,
-                    selectedFormat, actualProtocol, onStreamCompletion);
-
+            new Thread(() -> requestAndPlay(selectedMovie, selectedResolution, selectedFormat, actualProtocol)).start();
         });
 
         stopButton.addActionListener(e -> {
-            logger.info("Stop button clicked.");
-            videoPlayerPanel.stopVideo();
+            stopVideo();
             playButton.setEnabled(true);
             playButton.setText("▶ Play");
-            stopButton.setEnabled(false); // Disable stop button when not playing
+            stopButton.setEnabled(false);
         });
-        stopButton.setEnabled(false); // Initially disabled
+        stopButton.setEnabled(false);
 
         exitButton.addActionListener(e -> {
-            logger.info("Exit button clicked. Releasing resources and exiting.");
-            videoPlayerPanel.release();
+            stopVideo();
             frame.dispose();
             System.exit(0);
         });
 
-        // Select first movie automatically if available
-        if (!listModel.isEmpty()) {
-            movieList.setSelectedIndex(0);
-        } else {
-            logger.info("Movie list is empty. No movie selected by default.");
-            if (availableVideos == null || availableVideos.isEmpty()){
-                JOptionPane.showMessageDialog(frame,
-                        "No videos are available from the server for the selected criteria (Speed/Format).\nPlease check server status or try different settings.",
-                        "No Videos Available", JOptionPane.WARNING_MESSAGE);
-            }
-        }
-
-        frame.setLocationRelativeTo(null); // Center on screen
+        if (!listModel.isEmpty()) movieList.setSelectedIndex(0);
+        frame.setLocationRelativeTo(null);
         frame.setVisible(true);
     }
 
+    public static int findFreeUDPPort() throws IOException {
+        try (DatagramSocket socket = new DatagramSocket(0)) {
+            return socket.getLocalPort();
+        }
+    }
+
+    private void requestAndPlay(String movie, String resolution, String format, String protocol) {
+        ffplayProcess = null;
+        try (Socket socket = new Socket(Constants.SERVER_IP, Constants.PORT);
+             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+
+            int chosenPort = findFreeUDPPort();
+            String ip = "127.0.0.1"; // Localhost
+
+            // Start ffplay BEFORE sending request for UDP/RTP
+            if (protocol.equalsIgnoreCase("UDP")) {
+                ffplayProcess = new ProcessBuilder(
+                        "ffplay", "-autoexit", "-fflags", "nobuffer", "udp://" + ip + ":" + chosenPort)
+                        .inheritIO()
+                        .start();
+                Thread.sleep(500);
+            }
+
+            out.println(Protocol.STREAM);
+            out.println(movie);
+            out.println(resolution);
+            out.println(format);
+            out.println(protocol);
+            out.println(chosenPort);
+            out.flush();
+
+            String response = in.readLine();
+            if (!Protocol.STREAMING.equals(response)) {
+                JOptionPane.showMessageDialog(frame, "Server error: " + response, "Error", JOptionPane.ERROR_MESSAGE);
+                playButton.setEnabled(true);
+                playButton.setText("▶ Play");
+                stopButton.setEnabled(false);
+                return;
+            }
+
+            if (protocol.equalsIgnoreCase("TCP")) {
+                ffplayProcess = new ProcessBuilder(
+                        "ffplay", "-autoexit", "-fflags", "nobuffer", "tcp://" + ip + ":" + chosenPort)
+                        .inheritIO()
+                        .start();
+            } else if (protocol.equalsIgnoreCase("RTP")) {
+                String sdpMarker = in.readLine();
+                if ("SDP".equals(sdpMarker)) {
+                    StringBuilder sdpBuilder = new StringBuilder();
+                    String line;
+                    while ((line = in.readLine()) != null && !"END_SDP".equals(line)) {
+                        sdpBuilder.append(line).append("\n");
+                    }
+                    File sdpFile = File.createTempFile("rtp_", ".sdp");
+                    try (FileWriter fw = new FileWriter(sdpFile)) {
+                        fw.write(sdpBuilder.toString());
+                    }
+                    ffplayProcess = new ProcessBuilder(
+                            "ffplay", "-autoexit", "-protocol_whitelist", "file,rtp,udp", "-i", sdpFile.getAbsolutePath())
+                            .inheritIO()
+                            .start();
+                }
+            }
+            if (ffplayProcess != null) ffplayProcess.waitFor();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(frame, "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        } finally {
+            playButton.setEnabled(true);
+            playButton.setText("▶ Play");
+            stopButton.setEnabled(false);
+        }
+    }
+
     private String getAutoProtocol(String resolution) {
-        if (resolution == null) return "TCP"; // Default fallback
+        if (resolution == null) return "TCP";
         return switch (resolution) {
             case "240p" -> "TCP";
-            // Per project spec: 360p, 480p -> UDP; 720p, 1080p -> RTP/UDP
-            // For now, VideoStreamer only fully implements TCP-like streaming via FFMPEG pipe.
-            // So, we'll map these to TCP for the current server implementation.
-            // Once UDP/RTP are distinct on server, these can change.
-            case "360p", "480p" -> "TCP"; // Was "UDP", changed to TCP as server uses TCP pipe for all
-            case "720p", "1080p" -> "TCP"; // Was "RTP", changed to TCP
+            case "360p", "480p" -> "UDP";
+            case "720p", "1080p" -> "RTP";
             default -> "TCP";
         };
+    }
+
+    public void stopVideo() {
+        try {
+            if (ffplayProcess != null && ffplayProcess.isAlive()) {
+                ffplayProcess.destroy();
+                ffplayProcess.destroyForcibly();
+                ffplayProcess.waitFor();
+            }
+            ffplayProcess = null;
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
     }
 }
