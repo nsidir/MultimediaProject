@@ -88,11 +88,14 @@ public class ClientHandler implements Runnable {
                 ", Format: " + format + ", Protocol: " + protocol + ", Port: " + port);
 
         String videoPath = Constants.VIDEO_DIR + movie + "-" + resolution + "." + format;
+        logger.info("Request to play: " + videoPath);
         File file = new File(videoPath);
         if (!file.exists()) {
+            logger.warning("Requested file not found: " + videoPath);
             out.println(Protocol.NOT_FOUND);
             return;
         }
+
 
         out.println(Protocol.STREAMING);
 

@@ -14,20 +14,23 @@ public class NetworkSpeedTest {
         final SpeedTestSocket speedTestSocket = new SpeedTestSocket();
         final CountDownLatch latch = new CountDownLatch(1);
         final double[] speedResult = {0.0};
-        final double[] defaultSpeed = {10.0};
+        final double[] defaultSpeed = {3.0};
 
         speedTestSocket.addSpeedTestListener(new ISpeedTestListener() {
             @Override
             public void onCompletion(SpeedTestReport report) {
-                speedResult[0] = report.getTransferRateBit().doubleValue() / 1000000; // Mbps
+                System.out.println("Speed test complete: " + report.getTransferRateBit().doubleValue() / 1000000 + " Mbps");
+                speedResult[0] = report.getTransferRateBit().doubleValue() / 1000000;
                 latch.countDown();
             }
 
             @Override
             public void onError(SpeedTestError speedTestError, String errorMessage) {
+                System.err.println("Speed test error: " + errorMessage);
                 speedResult[0] = defaultSpeed[0];
                 latch.countDown();
             }
+
 
             @Override
             public void onProgress(float percent, SpeedTestReport report) {}

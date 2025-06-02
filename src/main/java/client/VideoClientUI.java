@@ -14,7 +14,7 @@ public class VideoClientUI {
     private JComboBox<String> resolutionCombo;
     private JComboBox<String> protocolCombo;
     private JList<String> movieList;
-    private JButton playButton, stopButton, saveButton, adaptButton;
+    private JButton playButton, stopButton, saveButton;
     private final Map<String, List<String>> availableVideos;
     private Process ffplayProcess;
     private static final Logger logger = Logger.getLogger(VideoClientUI.class.getName());
@@ -67,19 +67,16 @@ public class VideoClientUI {
         playButton = new JButton("▶ Play");
         stopButton = new JButton("⏹ Stop");
         saveButton = new JButton("💾 Save");
-        adaptButton = new JButton("⚡ Adapt");
         JButton exitButton = new JButton("Exit");
         Dimension buttonSize = new Dimension(100, 35);
         playButton.setPreferredSize(buttonSize);
         stopButton.setPreferredSize(buttonSize);
         saveButton.setPreferredSize(buttonSize);
-        adaptButton.setPreferredSize(buttonSize);
         exitButton.setPreferredSize(buttonSize);
 
         buttonPanel.add(playButton);
         buttonPanel.add(stopButton);
         buttonPanel.add(saveButton);
-        buttonPanel.add(adaptButton);
         buttonPanel.add(exitButton);
 
         JPanel southControlPanel = new JPanel(new BorderLayout());
@@ -90,24 +87,27 @@ public class VideoClientUI {
         controlPanel.add(southControlPanel, BorderLayout.SOUTH);
         frame.add(controlPanel, BorderLayout.CENTER);
 
-        // ... (listeners same as before)
         movieList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 String selectedMovie = movieList.getSelectedValue();
                 resolutionCombo.removeAllItems();
                 if (selectedMovie != null && availableVideos.containsKey(selectedMovie)) {
-                    availableVideos.get(selectedMovie).stream().sorted().forEach(resolutionCombo::addItem);
+                    // Only show allowed resolutions for the user's current speed
+                    availableVideos.get(selectedMovie).stream()
+                            .sorted()
+                            .filter(res -> allowed(res, connectionSpeed))
+                            .forEach(resolutionCombo::addItem);
                     if (resolutionCombo.getItemCount() > 0) resolutionCombo.setSelectedIndex(0);
                 }
             }
         });
+
 
         playButton.addActionListener(e -> playVideo());
         stopButton.addActionListener(e -> stopVideo());
         stopButton.setEnabled(false);
 
         saveButton.addActionListener(e -> saveVideo());
-        adaptButton.addActionListener(e -> adaptStream());
         exitButton.addActionListener(e -> {
             stopVideo();
             frame.dispose();
@@ -143,29 +143,7 @@ public class VideoClientUI {
         stopButton.setEnabled(true);
         isPlaying = true;
 
-        new Thread(() -> requestAndPlay(selectedMovie, selectedResolution, selectedFormat, actualProtocol, false)).start();
-    }
-
-    private void adaptStream() {
-        // Simulate network change/adaptive streaming: remeasure, pick best lower res, restart playback
-        connectionSpeed = shared.NetworkSpeedTest.measureDownloadSpeed();
-        JOptionPane.showMessageDialog(frame, String.format("New measured speed: %.2f Mbps", connectionSpeed));
-        String selectedMovie = movieList.getSelectedValue();
-        if (selectedMovie == null) return;
-        List<String> resolutions = availableVideos.get(selectedMovie);
-        String bestRes = "240p";
-        for (int i = Constants.RESOLUTIONS.length - 1; i >= 0; i--) {
-            String res = Constants.RESOLUTIONS[i];
-            if (resolutions.contains(res) && allowed(res, connectionSpeed)) {
-                bestRes = res;
-                break;
-            }
-        }
-        resolutionCombo.setSelectedItem(bestRes);
-        stopVideo();
-        // Start new stream at new resolution with ADAPT protocol
-        String finalBestRes = bestRes;
-        new Thread(() -> requestAndPlay(selectedMovie, finalBestRes, selectedFormat, "TCP", true)).start();
+        new Thread(() -> requestAndPlay(selectedMovie, selectedResolution, selectedFormat, actualProtocol)).start();
     }
 
     private boolean allowed(String res, double speed) {
@@ -223,7 +201,7 @@ public class VideoClientUI {
         }).start();
     }
 
-    private void requestAndPlay(String movie, String resolution, String format, String protocol, boolean isAdapt) {
+    private void requestAndPlay(String movie, String resolution, String format, String protocol) {
         ffplayProcess = null;
         try (Socket socket = StreamingClient.createSocket(Constants.SERVER_IP, Constants.PORT);
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
@@ -241,8 +219,7 @@ public class VideoClientUI {
                 Thread.sleep(500);
             }
 
-            // Protocol: STREAM or ADAPT (for adaptive switch)
-            out.println(isAdapt ? Protocol.ADAPT : Protocol.STREAM);
+            out.println(Protocol.STREAM);
             out.println(movie);
             out.println(resolution);
             out.println(format);
@@ -264,6 +241,7 @@ public class VideoClientUI {
                         "ffplay", "-autoexit", "-fflags", "nobuffer", "tcp://" + ip + ":" + chosenPort)
                         .inheritIO()
                         .start();
+                //TODO Fix RTP
             } else if (protocol.equalsIgnoreCase("RTP")) {
                 String sdpMarker = in.readLine();
                 if ("SDP".equals(sdpMarker)) {
@@ -293,6 +271,7 @@ public class VideoClientUI {
             isPlaying = false;
         }
     }
+
 
     private String getAutoProtocol(String resolution) {
         if (resolution == null) return "TCP";
