@@ -47,12 +47,15 @@ public class VideoStreamer {
                 Constants.FFMPEG_PATH,
                 "-re",
                 "-i", videoPath,
-                "-an", // Video only (no audio!) to fix "Only one stream supported"
-                "-c:v", "copy",
+                "-map", "0:v:0",
+                "-an",
+                "-c:v", "libx264",
+                "-preset", "ultrafast", // for fast CPU encoding
                 "-f", "rtp",
                 "-sdp_file", sdpPath,
                 "rtp://" + clientIP + ":" + clientPort
         );
+
         pb.inheritIO();
         logger.info("FFmpeg command: " + String.join(" ", pb.command()));
         Process process = pb.start();

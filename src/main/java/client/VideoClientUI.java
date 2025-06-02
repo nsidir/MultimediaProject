@@ -241,7 +241,6 @@ public class VideoClientUI {
                         "ffplay", "-autoexit", "-fflags", "nobuffer", "tcp://" + ip + ":" + chosenPort)
                         .inheritIO()
                         .start();
-                //TODO Fix RTP
             } else if (protocol.equalsIgnoreCase("RTP")) {
                 String sdpMarker = in.readLine();
                 if ("SDP".equals(sdpMarker)) {
