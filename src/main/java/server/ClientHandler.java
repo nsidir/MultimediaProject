@@ -46,7 +46,6 @@ public class ClientHandler implements Runnable {
         for (File f : files) {
             String name = f.getName();
             if (!name.endsWith("." + format)) continue;
-            // Parse: MovieName-Resolution.format
             int dashIdx = name.lastIndexOf('-');
             int dotIdx = name.lastIndexOf('.');
             if (dashIdx == -1 || dotIdx == -1) continue;
@@ -95,10 +94,8 @@ public class ClientHandler implements Runnable {
             return;
         }
 
-        // Always acknowledge so client can start ffplay
         out.println(Protocol.STREAMING);
 
-        // Small sleep to ensure client is ready (UDP/RTP)
         if (protocol.equalsIgnoreCase("UDP") || protocol.equalsIgnoreCase("RTP")) {
             try { Thread.sleep(700); } catch (InterruptedException ignored) {}
         }
@@ -110,10 +107,8 @@ public class ClientHandler implements Runnable {
             VideoStreamer.streamViaUDP(videoPath, clientIP, port);
         } else if (protocol.equalsIgnoreCase("RTP")) {
             String clientIP = clientSocket.getInetAddress().getHostAddress();
-            // RTP streaming (video only, ffplay expects SDP)
             File sdp = File.createTempFile("rtp_", ".sdp");
             VideoStreamer.streamViaRTP(videoPath, clientIP, port, sdp.getAbsolutePath());
-            // Send SDP to client
             out.println("SDP");
             try (BufferedReader sdpIn = new BufferedReader(new FileReader(sdp))) {
                 String line;

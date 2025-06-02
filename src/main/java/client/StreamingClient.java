@@ -3,30 +3,32 @@ package client;
 import shared.*;
 import javax.swing.*;
 import java.io.*;
-import java.net.Socket;
+import java.net.*;
 import java.util.*;
 import java.util.logging.Logger;
+import javax.net.ssl.*;
 
 public class StreamingClient {
     private static final Logger logger = Logger.getLogger(StreamingClient.class.getName());
 
     public static void main(String[] args) {
-        logger.info("Starting Video Streaming Client...");
+        // Set SSL truststore before any connection if using SSL
+        if (Constants.USE_SSL) {
+            System.setProperty("javax.net.ssl.trustStore", Constants.TRUSTSTORE_PATH);
+            System.setProperty("javax.net.ssl.trustStorePassword", Constants.TRUSTSTORE_PASSWORD);
+        }
 
+        logger.info("Starting Video Streaming Client...");
         try {
-            // Measure connection speed
-            logger.info("Measuring connection speed...");
             double connectionSpeed = NetworkSpeedTest.measureDownloadSpeed();
             logger.info("Connection speed: " + connectionSpeed + " Mbps");
 
-            // Get format preference from user
             String[] formats = Constants.FORMATS;
             String selectedFormat = (String) JOptionPane.showInputDialog(
                     null, "Select video format:", "Format Selection",
                     JOptionPane.QUESTION_MESSAGE, null, formats, formats[0]);
             if (selectedFormat == null) System.exit(0);
 
-            // Get available videos
             Map<String, List<String>> availableVideos = getAvailableVideos(connectionSpeed, selectedFormat);
 
             if (!availableVideos.isEmpty()) {
@@ -44,7 +46,7 @@ public class StreamingClient {
     }
 
     private static Map<String, List<String>> getAvailableVideos(double speed, String format) throws IOException {
-        try (Socket socket = new Socket(Constants.SERVER_IP, Constants.PORT);
+        try (Socket socket = createSocket(Constants.SERVER_IP, Constants.PORT);
              BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
 
@@ -62,6 +64,16 @@ public class StreamingClient {
                 }
             }
             return availableVideos;
+        }
+    }
+
+    public static Socket createSocket(String host, int port) throws IOException {
+        if (!Constants.USE_SSL) return new Socket(host, port);
+        try {
+            SSLSocketFactory sf = (SSLSocketFactory) SSLSocketFactory.getDefault();
+            return sf.createSocket(host, port);
+        } catch (Exception e) {
+            throw new IOException("Could not create SSL socket", e);
         }
     }
 }

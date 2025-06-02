@@ -14,13 +14,13 @@ public class VideoClientUI {
     private JComboBox<String> resolutionCombo;
     private JComboBox<String> protocolCombo;
     private JList<String> movieList;
-    private JButton playButton;
-    private JButton stopButton;
+    private JButton playButton, stopButton, saveButton, adaptButton;
     private final Map<String, List<String>> availableVideos;
     private Process ffplayProcess;
     private static final Logger logger = Logger.getLogger(VideoClientUI.class.getName());
     private double connectionSpeed;
     private String selectedFormat;
+    private volatile boolean isPlaying = false;
 
     public VideoClientUI(Map<String, List<String>> availableVideos, double connectionSpeed, String selectedFormat) {
         this.availableVideos = availableVideos;
@@ -59,7 +59,6 @@ public class VideoClientUI {
         settingsPanel.add(resolutionCombo);
         settingsPanel.add(new JLabel("Protocol:"));
         settingsPanel.add(protocolCombo);
-
         settingsPanel.add(new JLabel("Connection Speed:"));
         JLabel speedLabel = new JLabel(String.format("%.2f Mbps", connectionSpeed));
         settingsPanel.add(speedLabel);
@@ -67,14 +66,20 @@ public class VideoClientUI {
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
         playButton = new JButton("▶ Play");
         stopButton = new JButton("⏹ Stop");
+        saveButton = new JButton("💾 Save");
+        adaptButton = new JButton("⚡ Adapt");
         JButton exitButton = new JButton("Exit");
         Dimension buttonSize = new Dimension(100, 35);
         playButton.setPreferredSize(buttonSize);
         stopButton.setPreferredSize(buttonSize);
+        saveButton.setPreferredSize(buttonSize);
+        adaptButton.setPreferredSize(buttonSize);
         exitButton.setPreferredSize(buttonSize);
 
         buttonPanel.add(playButton);
         buttonPanel.add(stopButton);
+        buttonPanel.add(saveButton);
+        buttonPanel.add(adaptButton);
         buttonPanel.add(exitButton);
 
         JPanel southControlPanel = new JPanel(new BorderLayout());
@@ -85,6 +90,7 @@ public class VideoClientUI {
         controlPanel.add(southControlPanel, BorderLayout.SOUTH);
         frame.add(controlPanel, BorderLayout.CENTER);
 
+        // ... (listeners same as before)
         movieList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 String selectedMovie = movieList.getSelectedValue();
@@ -96,34 +102,12 @@ public class VideoClientUI {
             }
         });
 
-        playButton.addActionListener(e -> {
-            String selectedMovie = movieList.getSelectedValue();
-            String selectedResolution = (String) resolutionCombo.getSelectedItem();
-            String selectedProtocolChoice = (String) protocolCombo.getSelectedItem();
-
-            if (selectedMovie == null || selectedResolution == null || selectedProtocolChoice == null) {
-                JOptionPane.showMessageDialog(frame, "Please select movie, resolution, and protocol.");
-                return;
-            }
-
-            String actualProtocol = selectedProtocolChoice.equals("Auto")
-                    ? getAutoProtocol(selectedResolution) : selectedProtocolChoice;
-
-            playButton.setEnabled(false);
-            playButton.setText("Loading...");
-            stopButton.setEnabled(true);
-
-            new Thread(() -> requestAndPlay(selectedMovie, selectedResolution, selectedFormat, actualProtocol)).start();
-        });
-
-        stopButton.addActionListener(e -> {
-            stopVideo();
-            playButton.setEnabled(true);
-            playButton.setText("▶ Play");
-            stopButton.setEnabled(false);
-        });
+        playButton.addActionListener(e -> playVideo());
+        stopButton.addActionListener(e -> stopVideo());
         stopButton.setEnabled(false);
 
+        saveButton.addActionListener(e -> saveVideo());
+        adaptButton.addActionListener(e -> adaptStream());
         exitButton.addActionListener(e -> {
             stopVideo();
             frame.dispose();
@@ -141,16 +125,114 @@ public class VideoClientUI {
         }
     }
 
-    private void requestAndPlay(String movie, String resolution, String format, String protocol) {
+    private void playVideo() {
+        String selectedMovie = movieList.getSelectedValue();
+        String selectedResolution = (String) resolutionCombo.getSelectedItem();
+        String selectedProtocolChoice = (String) protocolCombo.getSelectedItem();
+
+        if (selectedMovie == null || selectedResolution == null || selectedProtocolChoice == null) {
+            JOptionPane.showMessageDialog(frame, "Please select movie, resolution, and protocol.");
+            return;
+        }
+
+        String actualProtocol = selectedProtocolChoice.equals("Auto")
+                ? getAutoProtocol(selectedResolution) : selectedProtocolChoice;
+
+        playButton.setEnabled(false);
+        playButton.setText("Loading...");
+        stopButton.setEnabled(true);
+        isPlaying = true;
+
+        new Thread(() -> requestAndPlay(selectedMovie, selectedResolution, selectedFormat, actualProtocol, false)).start();
+    }
+
+    private void adaptStream() {
+        // Simulate network change/adaptive streaming: remeasure, pick best lower res, restart playback
+        connectionSpeed = shared.NetworkSpeedTest.measureDownloadSpeed();
+        JOptionPane.showMessageDialog(frame, String.format("New measured speed: %.2f Mbps", connectionSpeed));
+        String selectedMovie = movieList.getSelectedValue();
+        if (selectedMovie == null) return;
+        List<String> resolutions = availableVideos.get(selectedMovie);
+        String bestRes = "240p";
+        for (int i = Constants.RESOLUTIONS.length - 1; i >= 0; i--) {
+            String res = Constants.RESOLUTIONS[i];
+            if (resolutions.contains(res) && allowed(res, connectionSpeed)) {
+                bestRes = res;
+                break;
+            }
+        }
+        resolutionCombo.setSelectedItem(bestRes);
+        stopVideo();
+        // Start new stream at new resolution with ADAPT protocol
+        String finalBestRes = bestRes;
+        new Thread(() -> requestAndPlay(selectedMovie, finalBestRes, selectedFormat, "TCP", true)).start();
+    }
+
+    private boolean allowed(String res, double speed) {
+        return switch (res) {
+            case "240p" -> speed >= Constants.BITRATE_240P;
+            case "360p" -> speed >= Constants.BITRATE_360P;
+            case "480p" -> speed >= Constants.BITRATE_480P;
+            case "720p" -> speed >= Constants.BITRATE_720P;
+            case "1080p" -> speed >= Constants.BITRATE_1080P;
+            default -> false;
+        };
+    }
+
+    private void saveVideo() {
+        String selectedMovie = movieList.getSelectedValue();
+        String selectedResolution = (String) resolutionCombo.getSelectedItem();
+        if (selectedMovie == null || selectedResolution == null) {
+            JOptionPane.showMessageDialog(frame, "Please select movie and resolution.");
+            return;
+        }
+        JFileChooser chooser = new JFileChooser();
+        chooser.setSelectedFile(new File(selectedMovie + "-" + selectedResolution + "." + selectedFormat));
+        if (chooser.showSaveDialog(frame) != JFileChooser.APPROVE_OPTION) return;
+        File outFile = chooser.getSelectedFile();
+        playButton.setEnabled(false);
+        saveButton.setEnabled(false);
+        new Thread(() -> {
+            try (Socket socket = StreamingClient.createSocket(Constants.SERVER_IP, Constants.PORT);
+                 PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+                 InputStream in = socket.getInputStream();
+                 FileOutputStream fos = new FileOutputStream(outFile)) {
+
+                out.println(Protocol.SAVE);
+                out.println(selectedMovie);
+                out.println(selectedResolution);
+                out.println(selectedFormat);
+                out.flush();
+                byte[] buffer = new byte[65536];
+                int read;
+                while ((read = in.read(buffer)) > 0) {
+                    fos.write(buffer, 0, read);
+                }
+                SwingUtilities.invokeLater(() -> {
+                    JOptionPane.showMessageDialog(frame, "Saved video to: " + outFile.getAbsolutePath());
+                    playButton.setEnabled(true);
+                    saveButton.setEnabled(true);
+                });
+            } catch (Exception ex) {
+                SwingUtilities.invokeLater(() -> {
+                    JOptionPane.showMessageDialog(frame, "Save failed: " + ex.getMessage());
+                    playButton.setEnabled(true);
+                    saveButton.setEnabled(true);
+                });
+            }
+        }).start();
+    }
+
+    private void requestAndPlay(String movie, String resolution, String format, String protocol, boolean isAdapt) {
         ffplayProcess = null;
-        try (Socket socket = new Socket(Constants.SERVER_IP, Constants.PORT);
+        try (Socket socket = StreamingClient.createSocket(Constants.SERVER_IP, Constants.PORT);
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
              BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
 
             int chosenPort = findFreeUDPPort();
-            String ip = "127.0.0.1"; // Localhost
+            String ip = "127.0.0.1";
 
-            // Start ffplay BEFORE sending request for UDP/RTP
+            // If UDP, open ffplay first
             if (protocol.equalsIgnoreCase("UDP")) {
                 ffplayProcess = new ProcessBuilder(
                         "ffplay", "-autoexit", "-fflags", "nobuffer", "udp://" + ip + ":" + chosenPort)
@@ -159,7 +241,8 @@ public class VideoClientUI {
                 Thread.sleep(500);
             }
 
-            out.println(Protocol.STREAM);
+            // Protocol: STREAM or ADAPT (for adaptive switch)
+            out.println(isAdapt ? Protocol.ADAPT : Protocol.STREAM);
             out.println(movie);
             out.println(resolution);
             out.println(format);
@@ -207,6 +290,7 @@ public class VideoClientUI {
             playButton.setEnabled(true);
             playButton.setText("▶ Play");
             stopButton.setEnabled(false);
+            isPlaying = false;
         }
     }
 
@@ -228,8 +312,10 @@ public class VideoClientUI {
                 ffplayProcess.waitFor();
             }
             ffplayProcess = null;
+            isPlaying = false;
         } catch (Exception ex) {
             ex.printStackTrace();
         }
     }
 }
+

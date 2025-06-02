@@ -43,12 +43,11 @@ public class VideoStreamer {
     // RTP: FFMPEG generates SDP, sends RTP to client IP/port
     public static void streamViaRTP(String videoPath, String clientIP, int clientPort, String sdpPath) throws IOException {
         logger.info("Starting RTP stream for video: " + videoPath + " to " + clientIP + ":" + clientPort);
-        // Only video stream for RTP, as ffmpeg's RTP muxer supports 1 stream per session!
         ProcessBuilder pb = new ProcessBuilder(
                 Constants.FFMPEG_PATH,
                 "-re",
                 "-i", videoPath,
-                "-an", // video only
+                "-an", // Video only (no audio!) to fix "Only one stream supported"
                 "-c:v", "copy",
                 "-f", "rtp",
                 "-sdp_file", sdpPath,
