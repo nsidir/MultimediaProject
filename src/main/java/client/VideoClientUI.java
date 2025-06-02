@@ -60,6 +60,10 @@ public class VideoClientUI {
         settingsPanel.add(new JLabel("Protocol:"));
         settingsPanel.add(protocolCombo);
 
+        settingsPanel.add(new JLabel("Connection Speed:"));
+        JLabel speedLabel = new JLabel(String.format("%.2f Mbps", connectionSpeed));
+        settingsPanel.add(speedLabel);
+
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
         playButton = new JButton("▶ Play");
         stopButton = new JButton("⏹ Stop");

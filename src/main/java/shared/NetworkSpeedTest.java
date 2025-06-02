@@ -14,6 +14,7 @@ public class NetworkSpeedTest {
         final SpeedTestSocket speedTestSocket = new SpeedTestSocket();
         final CountDownLatch latch = new CountDownLatch(1);
         final double[] speedResult = {0.0};
+        final double[] defaultSpeed = {10.0};
 
         speedTestSocket.addSpeedTestListener(new ISpeedTestListener() {
             @Override
@@ -24,7 +25,7 @@ public class NetworkSpeedTest {
 
             @Override
             public void onError(SpeedTestError speedTestError, String errorMessage) {
-                speedResult[0] = 2.0; // Default
+                speedResult[0] = defaultSpeed[0];
                 latch.countDown();
             }
 
@@ -37,7 +38,7 @@ public class NetworkSpeedTest {
             latch.await(TEST_DURATION_MS + 2000, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return 2.0;
+            return defaultSpeed[0];
         }
         return Math.round(speedResult[0] * 100.0) / 100.0;
     }
