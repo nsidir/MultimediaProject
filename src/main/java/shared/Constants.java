@@ -14,10 +14,12 @@ public class Constants {
     public static final double BITRATE_1080P = 6.0;
     public static final String[] RESOLUTIONS = {"240p", "360p", "480p", "720p", "1080p"};
     public static final String[] FORMATS = {"mp4", "mkv", "avi"};
-    public static final int NUM_SERVERS = 1;
+    public static final int NUM_SERVERS = 3;
     public static final boolean USE_SSL = true;
     public static final String KEYSTORE_PATH = "keystore.jks";
     public static final String KEYSTORE_PASSWORD = "password";
     public static final String TRUSTSTORE_PATH = "clienttruststore.jks";
     public static final String TRUSTSTORE_PASSWORD = "password";
+    public static final String LOAD_BALANCER_IP = "localhost";
+    public static final int LOAD_BALANCER_PORT = Constants.PORT + Constants.NUM_SERVERS;
 }

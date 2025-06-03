@@ -46,7 +46,7 @@ public class StreamingClient {
     }
 
     private static Map<String, List<String>> getAvailableVideos(double speed, String format) throws IOException {
-        try (Socket socket = createSocket(Constants.SERVER_IP, Constants.PORT);
+        try (Socket socket = createSocket(Constants.LOAD_BALANCER_IP, Constants.LOAD_BALANCER_PORT);
              BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
 
@@ -68,12 +68,14 @@ public class StreamingClient {
     }
 
     public static Socket createSocket(String host, int port) throws IOException {
-        if (!Constants.USE_SSL) return new Socket(host, port);
+
+        if (!Constants.USE_SSL) return new Socket(Constants.LOAD_BALANCER_IP, Constants.LOAD_BALANCER_PORT);
         try {
             SSLSocketFactory sf = (SSLSocketFactory) SSLSocketFactory.getDefault();
-            return sf.createSocket(host, port);
+            return sf.createSocket(Constants.LOAD_BALANCER_IP, Constants.LOAD_BALANCER_PORT);
         } catch (Exception e) {
             throw new IOException("Could not create SSL socket", e);
         }
     }
+
 }

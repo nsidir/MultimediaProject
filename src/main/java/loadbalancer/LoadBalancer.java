@@ -13,18 +13,14 @@ public class LoadBalancer {
         // Dynamically populate the SERVERS list
         for (int i = 0; i < Constants.NUM_SERVERS; i++) {
             int port = Constants.PORT + i;
-            SERVERS.add(new InetSocketAddress("127.0.0.1", port));
+            SERVERS.add(new InetSocketAddress(Constants.SERVER_IP, port));
         }
     }
 
     public static void main(String[] args) throws IOException {
-        int balancerPort = Constants.PORT + Constants.NUM_SERVERS; // e.g., 5000+NUM_SERVERS = 6000 if NUM_SERVERS=1000
-        if (args.length > 0) {
-            // Optional: allow user to override the balancer port as command-line argument
-            balancerPort = Integer.parseInt(args[0]);
-        }
-        ServerSocket balancerSocket = new ServerSocket(balancerPort);
-        System.out.println("Load Balancer listening on port " + balancerPort);
+
+        ServerSocket balancerSocket = new ServerSocket(Constants.LOAD_BALANCER_PORT);
+        System.out.println("Load Balancer listening on port " + Constants.LOAD_BALANCER_PORT);
 
         while (true) {
             Socket clientSocket = balancerSocket.accept();

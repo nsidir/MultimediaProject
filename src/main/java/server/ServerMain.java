@@ -24,12 +24,13 @@ public class ServerMain {
                     logger.info("Streaming Server is running on port " + serverPort + (Constants.USE_SSL ? " (SSL)" : ""));
                     while (true) {
                         Socket clientSocket = serverSocket.accept();
-                        logger.info("New client connected: " + clientSocket.getInetAddress());
+                        logger.info("New client connected: " + clientSocket.getInetAddress() + ":" + clientSocket.getPort()
+                                + " on server port " + serverPort);
                         threadPool.execute(new ClientHandler(clientSocket));
                     }
                 } catch (IOException e) {
                     logger.severe("Server error on port " + serverPort + ": " + e.getMessage());
-                    e.printStackTrace(); // Add stack trace for debugging
+                    e.printStackTrace();
                 }
             });
         }
