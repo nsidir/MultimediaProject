@@ -4,14 +4,15 @@ import shared.Constants;
 import java.io.IOException;
 import java.net.*;
 import java.util.concurrent.*;
-import java.util.logging.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import javax.net.ssl.*;
 
 public class ServerMain {
-    private static final Logger logger = Logger.getLogger(ServerMain.class.getName());
+    private static final Logger logger = LogManager.getLogger(ServerMain.class);
     private static final ExecutorService threadPool = Executors.newCachedThreadPool();
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
         logger.info("Starting Video Streaming Server...");
         VideoGenerator.generateMissingVideos();
         logger.info("Video generation complete!");
@@ -29,7 +30,7 @@ public class ServerMain {
                         threadPool.execute(new ClientHandler(clientSocket));
                     }
                 } catch (IOException e) {
-                    logger.severe("Server error on port " + serverPort + ": " + e.getMessage());
+                    logger.error("Server error on port " + serverPort + ": " + e.getMessage());
                     e.printStackTrace();
                 }
             });
@@ -43,7 +44,7 @@ public class ServerMain {
             System.setProperty("javax.net.ssl.keyStore", Constants.KEYSTORE_PATH);
             System.setProperty("javax.net.ssl.keyStorePassword", Constants.KEYSTORE_PASSWORD);
 
-            // Use explicit SSL context (more robust than default factory)
+            // Use explicit SSL context
             char[] pass = Constants.KEYSTORE_PASSWORD.toCharArray();
             java.security.KeyStore ks = java.security.KeyStore.getInstance("JKS");
             ks.load(new java.io.FileInputStream(Constants.KEYSTORE_PATH), pass);

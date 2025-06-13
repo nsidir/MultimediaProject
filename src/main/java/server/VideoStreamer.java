@@ -2,11 +2,11 @@ package server;
 
 import shared.Constants;
 import java.io.*;
-import java.net.*;
-import java.util.logging.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class VideoStreamer {
-    private static final Logger logger = Logger.getLogger(VideoStreamer.class.getName());
+    private static final Logger logger = LogManager.getLogger(VideoStreamer.class);
 
     // TCP: FFMPEG listens, client connects
     public static void streamViaTCP(String videoPath, int port) throws IOException {

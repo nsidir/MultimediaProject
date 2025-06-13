@@ -6,7 +6,7 @@ public class Constants {
     public static final String SERVER_IP = "localhost";
     public static final String VIDEO_DIR = "videos/";
     public static final String FFMPEG_PATH = "ffmpeg";
-    public static final String SPEED_TEST_SERVER = "http://speedtest.tele2.net/10MB.zip";
+    public static final String SPEED_TEST_SERVER = "http://speedtest.tele2.net/10MB.zip"; //Εδώ έγινε αλλαγή του server που χτυπάει γιατί το αρχικό στο gihub δεν λειτουργούσε
     public static final double BITRATE_240P = 0.7;
     public static final double BITRATE_360P = 1.0;
     public static final double BITRATE_480P = 2.0;
@@ -21,5 +21,5 @@ public class Constants {
     public static final String TRUSTSTORE_PATH = "clienttruststore.jks";
     public static final String TRUSTSTORE_PASSWORD = "password";
     public static final String LOAD_BALANCER_IP = "localhost";
-    public static final int LOAD_BALANCER_PORT = Constants.PORT + Constants.NUM_SERVERS;
+    public static final int LOAD_BALANCER_PORT = Constants.PORT + Constants.NUM_SERVERS; // Το port του load balancer είναι το επόμενο διαθέσιμο port μετά τα servers
 }

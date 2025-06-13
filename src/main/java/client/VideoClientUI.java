@@ -7,7 +7,6 @@ import java.io.*;
 import java.net.*;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger;
 
 public class VideoClientUI {
     private JFrame frame;
@@ -17,7 +16,6 @@ public class VideoClientUI {
     private JButton playButton, stopButton, saveButton;
     private final Map<String, List<String>> availableVideos;
     private Process ffplayProcess;
-    private static final Logger logger = Logger.getLogger(VideoClientUI.class.getName());
     private double connectionSpeed;
     private String selectedFormat;
     private volatile boolean isPlaying = false;
@@ -44,6 +42,7 @@ public class VideoClientUI {
 
         movieList = new JList<>(listModel);
         movieList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        movieList.setFixedCellHeight(30);
         JScrollPane scrollPane = new JScrollPane(movieList);
 
         resolutionCombo = new JComboBox<>();
@@ -254,7 +253,7 @@ public class VideoClientUI {
                         fw.write(sdpBuilder.toString());
                     }
                     ffplayProcess = new ProcessBuilder(
-                            "ffplay", "-autoexit", "-protocol_whitelist", "file,rtp,udp", "-i", sdpFile.getAbsolutePath())
+                            "ffplay", "-protocol_whitelist", "file,rtp,udp", "-i", sdpFile.getAbsolutePath())
                             .inheritIO()
                             .start();
                 }
@@ -282,6 +281,7 @@ public class VideoClientUI {
         };
     }
 
+    // Δεν κλείνει το παράθυρο του ffplay
     public void stopVideo() {
         try {
             if (ffplayProcess != null && ffplayProcess.isAlive()) {

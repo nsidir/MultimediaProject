@@ -10,7 +10,7 @@ public class LoadBalancer {
     private static int nextServer = 0;
 
     static {
-        // Dynamically populate the SERVERS list
+        // Δυναμικά γεμίζουμε τη λίστα SERVERS με τις διευθύνσεις των backend servers
         for (int i = 0; i < Constants.NUM_SERVERS; i++) {
             int port = Constants.PORT + i;
             SERVERS.add(new InetSocketAddress(Constants.SERVER_IP, port));

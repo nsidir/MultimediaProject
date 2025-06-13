@@ -4,10 +4,11 @@ import shared.*;
 import java.io.*;
 import java.net.*;
 import java.util.*;
-import java.util.logging.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class ClientHandler implements Runnable {
-    private static final Logger logger = Logger.getLogger(ClientHandler.class.getName());
+    private static final Logger logger = LogManager.getLogger(ClientHandler.class);
     private final Socket clientSocket;
 
     public ClientHandler(Socket socket) {
@@ -28,7 +29,7 @@ public class ClientHandler implements Runnable {
                 handleStreamRequest(in, out);
             }
         } catch (Exception e) {
-            logger.warning("ClientHandler exception: " + e.getMessage());
+            logger.warn("ClientHandler exception: " + e.getMessage());
         } finally {
             try { clientSocket.close(); } catch (Exception ignored) {}
         }
@@ -55,7 +56,7 @@ public class ClientHandler implements Runnable {
             available.computeIfAbsent(movie, k -> new ArrayList<>()).add(resolution);
         }
 
-        // Send response: count, then movie,resolution
+        // Αποστολή απάντησης: count, then movie,resolution
         int count = 0;
         for (List<String> resList : available.values()) count += resList.size();
         out.println(count);
@@ -91,7 +92,7 @@ public class ClientHandler implements Runnable {
         logger.info("Request to play: " + videoPath);
         File file = new File(videoPath);
         if (!file.exists()) {
-            logger.warning("Requested file not found: " + videoPath);
+            logger.warn("Requested file not found: " + videoPath);
             out.println(Protocol.NOT_FOUND);
             return;
         }
@@ -117,7 +118,7 @@ public class ClientHandler implements Runnable {
             //VideoStreamer.streamViaRTP(videoPath, clientIP, port, sdpFile.getAbsolutePath());
             VideoStreamer.streamViaRTP(videoPath, clientIP, Constants.RTP_PORT, sdpFile.getAbsolutePath());
 
-            // Wait for ffmpeg to generate the SDP file (it should be very fast)
+            // Wait for ffmpeg to generate the SDP file
             int tries = 0;
             while (!sdpFile.exists() || sdpFile.length() == 0) {
                 try { Thread.sleep(100); } catch (InterruptedException ignored) {}

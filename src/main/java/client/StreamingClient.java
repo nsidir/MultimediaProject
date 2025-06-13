@@ -5,13 +5,24 @@ import javax.swing.*;
 import java.io.*;
 import java.net.*;
 import java.util.*;
-import java.util.logging.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import javax.net.ssl.*;
 
+import com.formdev.flatlaf.FlatLightLaf;
+import com.formdev.flatlaf.FlatDarkLaf;
+
 public class StreamingClient {
-    private static final Logger logger = Logger.getLogger(StreamingClient.class.getName());
+    private static final Logger logger = LogManager.getLogger(StreamingClient.class);
 
     public static void main(String[] args) {
+        // Set UI theme
+        try {
+            UIManager.setLookAndFeel(new FlatLightLaf());
+        } catch (Exception ex) {
+            logger.warn("Failed to initialize FlatLaf: " + ex.getMessage());
+        }
+
         // Set SSL truststore before any connection if using SSL
         if (Constants.USE_SSL) {
             System.setProperty("javax.net.ssl.trustStore", Constants.TRUSTSTORE_PATH);
@@ -39,12 +50,13 @@ public class StreamingClient {
                         "No Videos", JOptionPane.INFORMATION_MESSAGE);
             }
         } catch (IOException e) {
-            logger.severe("Connection error: " + e.getMessage());
+            logger.error("Connection error: " + e.getMessage());
             JOptionPane.showMessageDialog(null, "Cannot connect to server: " + e.getMessage(),
                     "Connection Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
+    // Διαθέσιμα βίντεο με βάση speed and format
     private static Map<String, List<String>> getAvailableVideos(double speed, String format) throws IOException {
         try (Socket socket = createSocket(Constants.LOAD_BALANCER_IP, Constants.LOAD_BALANCER_PORT);
              BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));

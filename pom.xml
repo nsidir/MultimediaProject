@@ -35,11 +35,16 @@
             <version>1.32.1</version>
         </dependency>
 
-        <!-- SLF4J API (for logging, optional but recommended) -->
+        <!-- Log4j 2 for logging implementation -->
         <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <version>2.0.16</version>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+            <version>2.20.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>2.20.0</version>
         </dependency>
 
         <!-- VLCJ -->
@@ -59,6 +64,13 @@
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-swing</artifactId>
             <version>17</version>
+        </dependency>
+
+        <!-- Flatlaf UI -->
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf</artifactId>
+            <version>3.6</version>
         </dependency>
     </dependencies>
 </project>
